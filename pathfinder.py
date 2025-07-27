@@ -1,5 +1,5 @@
 import sys
-import time
+import heapq
 import matplotlib.pyplot as plt
 import matplotlib.colors
 import numpy as np
@@ -25,20 +25,21 @@ class Area:
     def __str__(self) -> str: return "\n".join(" ".join(map(str, row)) for row in self._grid)
 
 class Game:
-    """ Manages the game state, now with an AI player. """
+    """ Manages game state, rendering, and all control modes. """
     def __init__(self, area: Area, color_map: dict, non_walkable_tiles: set):
         self.area = area
         self.color_map = color_map
         self.non_walkable = non_walkable_tiles
         
-        # Find start and goal positions
-        self.player_pos = self._find_char('P')
+        self.start_pos = self._find_char('P')
         self.exit_pos = self._find_char('E')
         
-        if self.player_pos is None: raise ValueError("Player 'P' not found.")
+        if self.start_pos is None: raise ValueError("Player 'P' not found.")
         if self.exit_pos is None: raise ValueError("Exit 'E' not found.")
+        
+        self.player_pos = self.start_pos
 
-        # --- Matplotlib Setup (same as before) ---
+        # --- Matplotlib Setup ---
         self.unique_values = sorted(list(self.color_map.keys()))
         self.value_to_int = {val: i for i, val in enumerate(self.unique_values)}
         cmap_colors = [self.color_map[val] for val in self.unique_values]
@@ -46,90 +47,148 @@ class Game:
         self.fig, self.ax = plt.subplots(figsize=(self.area.cols / 2.5, self.area.rows / 2.5))
         numeric_grid = self._create_numeric_grid()
         self.im = self.ax.imshow(numeric_grid, cmap=cmap, interpolation='nearest')
-        self._format_plot("AI Player with Heuristics")
+        self._format_plot("Game Board")
 
-    def _find_char(self, char: str) -> tuple[int, int] | None:
-        """Finds the coordinates of a given character."""
+    def _find_char(self, char: str):
+        # ... (code is identical to before)
         for r in range(self.area.rows):
             for c in range(self.area.cols):
                 if self.area.get_cell(r, c) == char:
                     return (r, c)
         return None
 
-    # --- AI HEURISTIC AND MOVEMENT LOGIC ---
-    def _heuristic_distance(self, pos1: tuple, pos2: tuple) -> int:
-        """Calculates the Manhattan distance between two points."""
-        r1, c1 = pos1
-        r2, c2 = pos2
-        return abs(r1 - r2) + abs(c1 - c2)
+    ## Manual Control Mode
+    def run_manual(self):
+        self.ax.set_title("Manual Control Mode")
+        self.fig.canvas.mpl_connect('key_press_event', self.on_key_press)
+        print("Controls enabled. Use arrow keys to move. Close the window to exit.")
+        plt.show()
 
-    def _get_best_move(self) -> tuple[int, int] | None:
-        """Finds the best neighboring cell to move to based on the heuristic."""
-        r, c = self.player_pos
-        neighbors = [(r-1, c), (r+1, c), (r, c-1), (r, c+1)]
-        
-        best_move = None
-        min_dist = float('inf')
-
-        for n_r, n_c in neighbors:
-            # Check for valid move (within bounds and not an obstacle)
-            if (0 <= n_r < self.area.rows and 
-                0 <= n_c < self.area.cols and
-                self.area.get_cell(n_r, n_c) not in self.non_walkable):
-                
-                dist = self._heuristic_distance((n_r, n_c), self.exit_pos)
-                if dist < min_dist:
-                    min_dist = dist
-                    best_move = (n_r, n_c)
-                    
-        return best_move
-
-    def run_ai_step(self) -> bool:
-        """Executes a single step of the AI's logic."""
-        # Find the best move from the current position
-        next_move = self._get_best_move()
-
-        if next_move is None:
-            print("AI is stuck!")
-            return True # End the simulation
-
-        # Move the player
+    def on_key_press(self, event):
         old_r, old_c = self.player_pos
-        self.area.set_cell(old_r, old_c, 'V')
-        
-        new_r, new_c = next_move
-        self.area.set_cell(new_r, new_c, 'P')
-        self.player_pos = (new_r, new_c)
+        new_r, new_c = old_r, old_c
 
-        # Update the display
-        self.update_display()
-        
-        # Check if the player has reached the exit
-        if self.player_pos == self.exit_pos:
-            print("Success! The AI has reached the exit.")
-            return True # End the simulation
-        
-        return False # Continue simulation
+        if event.key == 'up': new_r -= 1
+        elif event.key == 'down': new_r += 1
+        elif event.key == 'left': new_c -= 1
+        elif event.key == 'right': new_c += 1
+        else: return
 
-    def run_ai_simulation(self):
-        """Runs the AI simulation with animation."""
-        print("Starting AI simulation...")
+        if (0 <= new_r < self.area.rows and 0 <= new_c < self.area.cols and
+            self.area.get_cell(new_r, new_c) not in self.non_walkable):
+            self.area.set_cell(old_r, old_c, 'V')
+            self.area.set_cell(new_r, new_c, 'P')
+            self.player_pos = (new_r, new_c)
+            self.update_display()
+    
+    ## Greedy AI Mode
+    def run_greedy_ai(self):
+        self.ax.set_title("Greedy AI Mode")
+        print("Starting Greedy AI simulation...")
         is_done = False
         while not is_done:
-            is_done = self.run_ai_step()
-            plt.pause(0.15) # Pause to animate the movement
-        plt.show() # Keep the final window open
+            is_done = self._greedy_ai_step()
+            plt.pause(0.15)
+        plt.show()
 
-    # --- Display Functions (mostly unchanged) ---
+    def _greedy_ai_step(self):
+        next_move = self._get_best_move_greedy()
+        if next_move is None:
+            print("Greedy AI is stuck!")
+            return True
+
+        self.area.set_cell(self.player_pos[0], self.player_pos[1], 'V')
+        self.area.set_cell(next_move[0], next_move[1], 'P')
+        self.player_pos = next_move
+        self.update_display()
+
+        if self.player_pos == self.exit_pos:
+            print("Greedy AI has reached the exit.")
+            return True
+        return False
+
+    def _get_best_move_greedy(self):
+        r, c = self.player_pos
+        neighbors = [(r-1, c), (r+1, c), (r, c-1), (r, c+1)]
+        best_move, min_dist = None, float('inf')
+        for n_r, n_c in neighbors:
+            if (0 <= n_r < self.area.rows and 0 <= n_c < self.area.cols and
+                self.area.get_cell(n_r, n_c) not in self.non_walkable):
+                dist = self._heuristic_distance((n_r, n_c), self.exit_pos)
+                if dist < min_dist:
+                    min_dist, best_move = dist, (n_r, n_c)
+        return best_move
+
+    ## A* AI Mode 
+    def run_a_star_ai(self):
+        self.ax.set_title("A* AI Mode")
+        print("Calculating optimal path with A*...")
+        path = self._a_star_pathfinding()
+
+        if path is None:
+            print("A* AI could not find a path to the exit.")
+            plt.show()
+            return
+
+        print(f"Path found! Animating {len(path)-1} moves...")
+        for move in path:
+            self.area.set_cell(self.player_pos[0], self.player_pos[1], 'V')
+            self.area.set_cell(move[0], move[1], 'P')
+            self.player_pos = move
+            self.update_display()
+            plt.pause(0.15)
+        
+        self.area.set_cell(self.player_pos[0], self.player_pos[1], 'P') # Ensure player is 'P' at the end
+        self.update_display()
+        print("A* AI has reached the exit.")
+        plt.show()
+
+    def _heuristic_distance(self, pos1, pos2):
+        return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
+
+    def _reconstruct_path(self, came_from, current):
+        path = [current]
+        while current in came_from:
+            current = came_from[current]
+            path.insert(0, current)
+        return path[1:] # Exclude the starting position
+
+    def _a_star_pathfinding(self):
+        open_set = [(self._heuristic_distance(self.start_pos, self.exit_pos), self.start_pos)]
+        came_from = {}
+        g_score = { (r,c): float('inf') for r in range(self.area.rows) for c in range(self.area.cols) }
+        g_score[self.start_pos] = 0
+
+        while open_set:
+            _, current = heapq.heappop(open_set)
+
+            if current == self.exit_pos:
+                return self._reconstruct_path(came_from, current)
+
+            r, c = current
+            neighbors = [(r-1, c), (r+1, c), (r, c-1), (r, c+1)]
+            for n_r, n_c in neighbors:
+                if (0 <= n_r < self.area.rows and 0 <= n_c < self.area.cols and
+                    self.area.get_cell(n_r, n_c) not in self.non_walkable):
+                    
+                    neighbor = (n_r, n_c)
+                    tentative_g_score = g_score[current] + 1
+                    
+                    if tentative_g_score < g_score[neighbor]:
+                        came_from[neighbor] = current
+                        g_score[neighbor] = tentative_g_score
+                        f_score = tentative_g_score + self._heuristic_distance(neighbor, self.exit_pos)
+                        heapq.heappush(open_set, (f_score, neighbor))
+        return None # No path found
+
+    ## Common Display Functions
     def _create_numeric_grid(self):
         # ... (code is identical to before)
         numeric_grid = np.zeros((self.area.rows, self.area.cols), dtype=int)
         for r in range(self.area.rows):
             for c in range(self.area.cols):
-                value = self.area.get_cell(r, c)
-                numeric_grid[r, c] = self.value_to_int.get(value)
+                numeric_grid[r, c] = self.value_to_int.get(self.area.get_cell(r, c))
         return numeric_grid
-
     def _format_plot(self, title: str):
         # ... (code is identical to before)
         self.ax.set_xticks(np.arange(-.5, self.area.cols, 1), minor=True)
@@ -137,7 +196,6 @@ class Game:
         self.ax.grid(which="minor", color="black", linestyle='-', linewidth=1.5)
         self.ax.tick_params(which="major", bottom=False, left=False, labelbottom=False, labelleft=False)
         self.ax.set_title(title, fontsize=16)
-
     def update_display(self):
         # ... (code is identical to before)
         new_numeric_grid = self._create_numeric_grid()
@@ -146,25 +204,42 @@ class Game:
 
 # --- Main execution block ---
 if __name__ == "__main__":
+    game_map = Area(M=10, N=15, default_value='.')
+    
+    # A map with a U-shaped obstacle to show the difference between Greedy and A*
+    game_map.set_cell(row=8, col=2, value='P') 
+    game_map.set_cell(row=1, col=13, value='E')
+    for r in range(2, 8): game_map.set_cell(r, 6, value='X')
+    for c in range(7, 13): game_map.set_cell(2, c, value='X')
+    for c in range(7, 13): game_map.set_cell(7, c, value='X')
+
+    color_map = {
+        '.': '#d3d3d3', 'V': '#fef08a', 'P': '#3498db',
+        'E': '#2ecc71', 'X': '#34495e', 'W': '#5dade2'
+    }
+    non_walkable_tiles = {'X', 'W'}
+
     try:
-        game_map = Area(M=10, N=15, default_value='.')
-        
-        # A map with a U-shaped obstacle to show a potential weakness
-        game_map.set_cell(row=8, col=2, value='P') 
-        game_map.set_cell(row=1, col=13, value='E')
-        for r in range(2, 8): game_map.set_cell(r, 6, value='X')
-        for c in range(7, 13): game_map.set_cell(2, c, value='X')
-        for c in range(7, 13): game_map.set_cell(7, c, value='X')
+        # --- User Mode Selection ---
+        print("+" + "-"*27 + "+")
+        print("| Select a Control Mode     |")
+        print("+" + "-"*27 + "+")
+        print("| 1: Manual Control         |")
+        print("| 2: Greedy AI (Can get stuck)|")
+        print("| 3: A* AI (Optimal path)     |")
+        print("+" + "-"*27 + "+")
+        choice = input("Enter choice (1/2/3): ")
 
-        color_map = {
-            '.': '#d3d3d3', 'V': '#fef08a', 'P': '#3498db',
-            'E': '#2ecc71', 'X': '#34495e', 'W': '#5dade2'
-        }
-        non_walkable_tiles = {'X', 'W'}
-
-        # Create and run the AI game
         game = Game(game_map, color_map, non_walkable_tiles)
-        game.run_ai_simulation()
+
+        if choice == '1':
+            game.run_manual()
+        elif choice == '2':
+            game.run_greedy_ai()
+        elif choice == '3':
+            game.run_a_star_ai()
+        else:
+            print("Invalid choice. Exiting.")
 
     except Exception as e:
         print(f"\nAn error occurred: {e}", file=sys.stderr)
