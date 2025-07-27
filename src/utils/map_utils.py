@@ -2,6 +2,7 @@ import random
 import os
 from src.core.area import Area
 from src.game.game import Game
+from src.agents.a_star_agent import AStarAgent # Import AStarAgent
 
 def generate_random_map(M: int, N: int, wall_density=0.35):
     """
@@ -14,14 +15,17 @@ def generate_random_map(M: int, N: int, wall_density=0.35):
 
     # 2. Find a guaranteed path using a temporary, open-field map
     pathfinder_map = Area(M, N, default_value='.')
+    # Create a headless Game instance for pathfinding check
     pathfinder_game = Game(pathfinder_map, {}, set(), headless=True)
+    # Create a temporary AStarAgent instance for the pathfinding check
+    temp_astar_agent = AStarAgent(pathfinder_game)
     
     # Select start and end points that are reasonably far apart
     start_pos = (random.randint(0, M//4), random.randint(0, N//4))
     exit_pos = (random.randint(M*3//4, M-1), random.randint(N*3//4, N-1))
 
     # The pathfinder will never fail on an open map. Request the full path.
-    guaranteed_path = pathfinder_game._a_star_pathfinding(start_pos, exit_pos, include_start=True)
+    guaranteed_path = temp_astar_agent._a_star_pathfinding(start_pos, exit_pos, include_start=True)
 
     # 3. Carve the guaranteed path into the wall-filled map
     path_cells = set(guaranteed_path)

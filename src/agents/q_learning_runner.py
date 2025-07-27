@@ -8,7 +8,7 @@ class QLearningRunner:
     """
     def __init__(self, game):
         self.game = game
-        self.agent = QLearningAgent(actions=[0, 1, 2, 3], q_table_filepath='q_table.pkl') # 0:N, 1:E, 2:S, 3:W
+        self.agent = QLearningAgent(actions=[0, 1, 2, 3], q_table_filepath='data/q_table.pkl') # 0:N, 1:E, 2:S, 3:W
 
     def run(self, training_mode=True):
         """
@@ -28,8 +28,8 @@ class QLearningRunner:
                 print("No trained Q-table found. Please run training mode first.")
                 return
 
-        episodes = 500
-        steps_per_episode = 200
+        episodes = 1000
+        steps_per_episode = 2000
         
         for episode in range(episodes if training_mode else 1):
             self.game.player_pos = self.game.start_pos

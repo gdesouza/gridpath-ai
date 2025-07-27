@@ -17,9 +17,9 @@ class QLearningAgent:
         actions (list): A list of possible actions the agent can take.
         q_table_filepath (str): The file path to save/load the Q-table.
     """
-    def __init__(self, actions: list, q_table_filepath='q_table.pkl'):
+    def __init__(self, actions: list, q_table_filepath='data/q_table.pkl'):
         self.q_table = {}
-        self.learning_rate = 0.1
+        self.learning_rate = 0.01
         self.discount_factor = 0.99
         self.epsilon = 1.0
         self.epsilon_decay_rate = 0.001
