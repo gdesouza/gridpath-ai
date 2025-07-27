@@ -1,6 +1,7 @@
 import sys
 import heapq
 import random
+import os
 import matplotlib.pyplot as plt
 import matplotlib.colors
 import numpy as np
@@ -23,6 +24,40 @@ class Area:
     def get_cell(self, row: int, col: int) -> any:
         if not (0 <= row < self.rows and 0 <= col < self.cols): raise IndexError("Cell out of bounds.")
         return self._grid[row][col]
+
+    @classmethod
+    def from_list(cls, grid_list):
+        M = len(grid_list)
+        N = len(grid_list[0]) if M > 0 else 0
+        area = cls(M, N)
+        area._grid = grid_list
+        return area
+
+# --- NEW: Function to load a map from a file ---
+def load_map_from_file(filepath):
+    """Loads a map from a text file and returns an Area object."""
+    try:
+        with open(filepath, 'r') as f:
+            lines = [line.rstrip() for line in f.readlines()]
+        
+        while lines and not lines[-1]:
+            lines.pop()
+
+        grid = [line.split() for line in lines]
+        
+        if not grid: raise ValueError("Map file is empty.")
+        num_cols = len(grid[0])
+        if any(len(row) != num_cols for row in grid):
+            raise ValueError("Map file has inconsistent row lengths.")
+        
+        print(f"Successfully loaded map '{os.path.basename(filepath)}'.")
+        return Area.from_list(grid)
+    except FileNotFoundError:
+        print(f"Error: File not found at '{filepath}'.")
+        return None
+    except Exception as e:
+        print(f"Error loading map: {e}")
+        return None
 
 # --- NEW: Random Map Generation ---
 def generate_random_map(M: int, N: int, wall_density=0.3):
@@ -258,6 +293,39 @@ class Game:
         self.im.set_data(new_numeric_grid)
         self.fig.canvas.draw_idle()
 
+    @classmethod
+    def from_list(cls, grid_list):
+        M = len(grid_list)
+        N = len(grid_list[0]) if M > 0 else 0
+        area = cls(M, N)
+        area._grid = grid_list
+        return area
+
+def load_map_from_file(filepath):
+    """Loads a map from a text file and returns an Area object."""
+    try:
+        with open(filepath, 'r') as f:
+            lines = f.readlines()
+        
+        grid = [line.strip().split() for line in lines]
+        
+        # Validation
+        if not grid: raise ValueError("Map file is empty.")
+        num_cols = len(grid[0])
+        if any(len(row) != num_cols for row in grid):
+            raise ValueError("Map file has inconsistent row lengths.")
+        
+        print(f"Successfully loaded map '{os.path.basename(filepath)}'.")
+        return Area.from_list(grid)
+    except FileNotFoundError:
+        print(f"Error: File not found at '{filepath}'.")
+        return None
+    except Exception as e:
+        print(f"Error loading map: {e}")
+        return None
+
+
+
 # --- Main Execution Block (Now a master loop) ---
 if __name__ == "__main__":
     color_map = {
@@ -268,16 +336,16 @@ if __name__ == "__main__":
     active_map = generate_random_map(15, 25)
 
     while True:
-        print("\n" + "+"+"-"*35+"+")
-        print("| GridPath AI Control Menu          |")
-        print("+"+"-"*35+"+")
+        print("\n" + "+"+"-"*43+"+")
+        print("| GridPath AI Control Menu                  |")
+        print("+"+"-"*43+"+")
         print("| 1: Manual Control                 |")
         print("| 2: Greedy AI                      |")
         print("| 3: A* AI (Optimal)                |")
-        print("| n: Generate New Map and Return    |")
-        print("| e: Exit Program                   |")
-        print("+"+"-"*35+"+")
-        
+        print("|-------------------------------------------|")
+        print("| Map Options:                              |")
+        print("|  (l)oad map, (n)ew random map, (e)xit     |")
+        print("+"+"-"*43+"+")
         choice = input("Enter your choice: ").lower()
 
         if choice == 'e':
@@ -285,6 +353,15 @@ if __name__ == "__main__":
         
         if choice == 'n':
             active_map = generate_random_map(15, 25); continue
+
+        if choice == 'l':
+            filepath = input("Enter the path to the map file: ")
+            loaded_map = load_map_from_file(filepath)
+            if loaded_map:
+                active_map = loaded_map
+            else:
+                print("Returning to menu.")
+            continue
 
         if choice not in ['1', '2', '3']:
             print("Invalid choice, please try again."); continue
