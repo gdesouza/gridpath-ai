@@ -2,6 +2,7 @@ import numpy as np
 import random
 import os
 import pickle
+from src.config.q_learning_config import QLearningConfig
 
 class QLearningAgent:
     """
@@ -17,15 +18,15 @@ class QLearningAgent:
         actions (list): A list of possible actions the agent can take.
         q_table_filepath (str): The file path to save/load the Q-table.
     """
-    def __init__(self, actions: list, q_table_filepath='data/q_table.pkl'):
+    def __init__(self, actions: list):
         self.q_table = {}
-        self.learning_rate = 0.01
-        self.discount_factor = 0.99
-        self.epsilon = 1.0
-        self.epsilon_decay_rate = 0.001
-        self.min_epsilon = 0.01
+        self.learning_rate = QLearningConfig.LEARNING_RATE
+        self.discount_factor = QLearningConfig.DISCOUNT_FACTOR
+        self.epsilon = QLearningConfig.EPSILON
+        self.epsilon_decay_rate = QLearningConfig.EPSILON_DECAY_RATE
+        self.min_epsilon = QLearningConfig.MIN_EPSILON
         self.actions = actions
-        self.q_table_filepath = q_table_filepath
+        self.q_table_filepath = QLearningConfig.Q_TABLE_FILEPATH
 
     def get_q_value(self, state, action):
         """Retrieves the Q-value for a given state-action pair."""

@@ -28,15 +28,18 @@ def main():
         print("|  1: Manual Control                        |")
         print("|  2: Greedy AI                             |")
         print("|  3: A* AI (Optimal Path)                  |")
-        print("|-------------------------------------------|")
+        print("|-------------------------------------------")
         print("| Area Coverage Agents (Goal: Cover Area)   |")
         print("|  4: Wall Follower AI                      |")
         print("|  5: Frontier Exploration AI               |")
-        print("|-------------------------------------------|")
+        print("|-------------------------------------------")
         print("| Reinforcement Learning Agents             |")
         print("|  6: Train Q-Learning Agent (Slow)         |")
         print("|  7: Run Trained Q-Learning Agent          |")
-        print("|-------------------------------------------|")
+        print("|-------------------------------------------")
+        print("| Simulation Options:                       |")
+        print("|  (a)djust animation speed                 |")
+        print("|-------------------------------------------")
         print("| Map Options:                              |")
         print("|  (l)oad map, (n)ew random map, (e)xit     |")
         print("+"+"-"*43+"+")
@@ -79,12 +82,33 @@ def main():
                 print("Map loading cancelled.")
             continue
 
+        if choice == 'a':
+            try:
+                new_speed = float(input("Enter new animation speed (e.g., 0.05 for fast, 0.5 for slow): "))
+                if new_speed < 0:
+                    raise ValueError
+                # Update the animation_speed for the next game instance
+                # This will be picked up when a new Game object is created
+                # or if we pass it to the existing game object if it's already running.
+                # For simplicity, we'll apply it to the next game instance.
+                # If a game is already running, its speed can be adjusted with 'f'/'s' keys.
+                Game.animation_speed_override = new_speed # Store as a class attribute for now
+                print(f"Animation speed set to {new_speed}.")
+            except ValueError:
+                print("Invalid speed. Please enter a positive number.")
+            continue
+
         if choice not in ['1', '2', '3', '4', '5', '6', '7']:
             print("Invalid choice, please try again.")
             continue
 
         # Use the currently active_map for the game instance
+        if active_map is None: # Fallback if no map is loaded/generated yet
+            active_map = generate_random_map(15, 25)
+
         game = Game(active_map, color_map, non_walkable_tiles)
+        if hasattr(Game, 'animation_speed_override'):
+            game.animation_speed = Game.animation_speed_override # Apply override
 
         if choice == '1':
             # Manual control is handled directly in Game, not by an agent class
