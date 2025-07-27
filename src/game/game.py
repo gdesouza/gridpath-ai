@@ -2,7 +2,7 @@ import heapq
 import matplotlib.pyplot as plt
 import matplotlib.colors
 import numpy as np
-from area import Area
+from src.core.area import Area
 
 class Game:
     """
@@ -48,7 +48,7 @@ class Game:
             raise ValueError("Map must contain a Player ('P') and an Exit ('E').")
         
         self.player_pos = self.start_pos
-        self.mode = 'manual'
+        self.mode = 'manual' # Default mode
         
         self.request = 'CONTINUE'
         self.is_paused = False
@@ -97,125 +97,9 @@ class Game:
             if self.fig: plt.close(self.fig)
             return
 
-        if self.mode != 'manual':
-            if event.key == 'p': self.is_paused = not self.is_paused
-            elif event.key == 's': self.animation_speed = min(1.0, self.animation_speed + 0.05)
-            elif event.key == 'f': self.animation_speed = max(0.01, self.animation_speed - 0.05)
-            return
-
-        old_r, old_c = self.player_pos
-        new_r, new_c = old_r, old_c
-        if event.key == 'up': new_r -= 1
-        elif event.key == 'down': new_r += 1
-        elif event.key == 'left': new_c -= 1
-        elif event.key == 'right': new_c += 1
-        else: return
-
-        if (0 <= new_r < self.area.rows and 0 <= new_c < self.area.cols and
-            self.area.get_cell(new_r, new_c) not in self.non_walkable):
-            self._move_player_to((new_r, new_c))
-
-    def run_manual(self):
-        """Runs the game in manual control mode."""
-        self.mode = 'manual'
-        self.ax.set_title("Manual Control")
-        plt.show()
-
-    def run_greedy_ai(self):
-        """Runs the Greedy AI simulation."""
-        self.mode = 'greedy'
-        self.ax.set_title("Greedy AI")
-        is_done = False
-        while not is_done and self.request == 'CONTINUE':
-            while self.is_paused: plt.pause(0.1)
-            next_move = self._get_best_move_greedy()
-            if next_move is None: break
-            self._move_player_to(next_move)
-            if self.player_pos == self.exit_pos: is_done = True
-            plt.pause(self.animation_speed)
-        if self.request == 'CONTINUE': plt.show()
-
-    def run_a_star_ai(self):
-        """Runs the A* pathfinding AI simulation."""
-        self.mode = 'a_star'
-        self.ax.set_title("A* AI")
-        path = self._a_star_pathfinding(self.start_pos, self.exit_pos)
-        if path:
-            for move in path:
-                while self.is_paused: plt.pause(0.1)
-                self._move_player_to(move)
-                plt.pause(self.animation_speed)
-        if self.request == 'CONTINUE': plt.show()
-
-    def _get_best_move_greedy(self) -> tuple | None:
-        """
-        Calculates the best next move for the Greedy AI.
-
-        The greedy algorithm chooses the neighbor that is closest to the exit
-        based on Manhattan distance.
-
-        Returns:
-            A tuple (row, col) of the best move, or None if stuck.
-        """
-        r, c = self.player_pos
-        neighbors = [(r-1, c), (r+1, c), (r, c-1), (r, c+1)]
-        best_move, min_dist = None, float('inf')
-        for n_r, n_c in neighbors:
-            if (0 <= n_r < self.area.rows and 0 <= n_c < self.area.cols and
-                self.area.get_cell(n_r, n_c) not in self.non_walkable):
-                dist = abs(n_r - self.exit_pos[0]) + abs(n_c - self.exit_pos[1])
-                if dist < min_dist:
-                    min_dist, best_move = dist, (n_r, n_c)
-        return best_move
-
-    def _a_star_pathfinding(self, start: tuple, goal: tuple, include_start: bool = False) -> list | None:
-        """
-        Finds the shortest path from a start to a goal using the A* algorithm.
-
-        Args:
-            start (tuple): The starting (row, col) position.
-            goal (tuple): The goal (row, col) position.
-            include_start (bool): If True, the path includes the start node.
-
-        Returns:
-            A list of (row, col) tuples representing the path, or None if no path is found.
-        """
-        open_set = [(abs(start[0] - goal[0]) + abs(start[1] - goal[1]), start)]
-        came_from, g_score = {}, {start: 0}
-        while open_set:
-            _, current = heapq.heappop(open_set)
-            if current == goal:
-                return self._reconstruct_path(came_from, current, include_start)
-            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                neighbor = (current[0] + dr, current[1] + dc)
-                if not (0 <= neighbor[0] < self.area.rows and 0 <= neighbor[1] < self.area.cols and
-                        self.area.get_cell(neighbor[0], neighbor[1]) not in self.non_walkable):
-                    continue
-                tentative_g_score = g_score[current] + 1
-                if tentative_g_score < g_score.get(neighbor, float('inf')):
-                    came_from[neighbor] = current
-                    g_score[neighbor] = tentative_g_score
-                    f_score = tentative_g_score + abs(neighbor[0] - goal[0]) + abs(neighbor[1] - goal[1])
-                    heapq.heappush(open_set, (f_score, neighbor))
-        return None
-
-    def _reconstruct_path(self, came_from: dict, current: tuple, include_start: bool) -> list:
-        """
-        Reconstructs the path from the came_from map generated by A*.
-
-        Args:
-            came_from (dict): A map of nodes pointing to their predecessors.
-            current (tuple): The goal node to start reconstruction from.
-            include_start (bool): Whether to include the start node in the path.
-
-        Returns:
-            A list of (row, col) tuples representing the path.
-        """
-        path = [current]
-        while current in came_from:
-            current = came_from[current]
-            path.insert(0, current)
-        return path if include_start else path[1:]
+        # Manual movement is now handled by the main loop, not directly here
+        # This method will primarily handle global controls and pass other events
+        # to the active agent if needed.
 
     def _create_numeric_grid(self) -> np.ndarray:
         """Converts the symbolic grid to a numeric grid for plotting."""
