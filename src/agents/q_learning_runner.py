@@ -10,6 +10,7 @@ class QLearningRunner:
     def __init__(self, game):
         self.game = game
         self.agent = QLearningAgent(actions=[0, 1, 2, 3]) # Actions are 0:N, 1:E, 2:S, 3:W
+        self.prev_action = None # To track previous action for direction change penalty
 
     def run(self, training_mode=True):
         """
@@ -37,6 +38,7 @@ class QLearningRunner:
             self.game.visited_cells = {self.game.player_pos}
             self.game.update_display() # Full redraw
             total_reward = 0
+            self.prev_action = None # Reset previous action for each new episode
 
             for step in range(steps_per_episode):
                 if self.game.request != 'CONTINUE': break
@@ -45,31 +47,44 @@ class QLearningRunner:
                 state = (self.game.player_pos, frozenset(self.game.visited_cells))
                 action = self.agent.get_action(state)
 
+                # Apply penalty for changing direction or reward for continuing
+                direction_reward = 0.0
+                if self.prev_action is not None:
+                    if action != self.prev_action:
+                        direction_reward = -0.1 # Small penalty for changing direction
+                    else:
+                        direction_reward = 0.05 # Small reward for continuing in the same direction
+                
+                self.prev_action = action # Update previous action
+
                 moves = [(-1, 0), (0, 1), (1, 0), (0, -1)]
                 r, c = self.game.player_pos
                 n_r, n_c = r + moves[action][0], c + moves[action][1]
                 
-                reward = 0.0
+                step_reward = 0.0 # Initialize reward for the current step
                 if not (0 <= n_r < self.game.area.rows and 0 <= n_c < self.game.area.cols and
                         self.game.area.get_cell(n_r, n_c) not in self.game.non_walkable):
-                    reward = -5.0 # Penalty for hitting a wall
+                    step_reward += -5.0 # Penalty for hitting a wall
                     next_player_pos = self.game.player_pos # Stay in place
                 else:
                     if (n_r, n_c) == self.game.exit_pos:
-                        reward = 10.0 # Reward for reaching exit
+                        step_reward += 10.0 # Reward for reaching exit
                     elif (n_r, n_c) in self.game.visited_cells:
-                        reward = -0.2 # Small penalty for re-visiting
+                        step_reward += -0.2 # Small penalty for re-visiting
                     else:
-                        reward = 1.0 # Reward for exploring new cells
+                        step_reward += 1.0 # Reward for exploring new cells
                     next_player_pos = (n_r, n_c)
                 
-                total_reward += reward
+                # Add the direction change penalty to the step_reward
+                step_reward += direction_reward # Add the direction change/continuation reward
+                
+                total_reward += step_reward
                 
                 next_visited = self.game.visited_cells.union({next_player_pos})
                 next_state = (next_player_pos, frozenset(next_visited))
                 
                 if training_mode:
-                    self.agent.update(state, action, reward, next_state)
+                    self.agent.update(state, action, step_reward, next_state)
 
                 self.game._move_player_to(next_player_pos)
                 
@@ -89,5 +104,10 @@ class QLearningRunner:
         if training_mode:
             self.agent.save_q_table()
             print("Training complete. Run again in 'Trained Agent' mode to see the result.")
+
+        # Reset map to initial state after training
+        self.game.player_pos = self.game.start_pos
+        self.game.visited_cells = {self.game.start_pos}
+        self.game.update_display()
 
         if self.game.request == 'CONTINUE': plt.show()

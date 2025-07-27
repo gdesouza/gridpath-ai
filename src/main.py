@@ -69,7 +69,7 @@ def main():
             filepath = filedialog.askopenfilename(
                 initialdir=initial_dir,
                 title="Select a map file",
-                filetypes=[("Text Files", "*.txt"), ("All Files", "*.* ")]
+                filetypes=[("Map Files", "*.map"), ("All Files", "*.*")]
             )
             
             if filepath:

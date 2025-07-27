@@ -101,8 +101,8 @@ class MapEditor:
             return
 
         filepath = filedialog.asksaveasfilename(
-            defaultextension=".txt",
-            filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")],
+            defaultextension=".map",
+            filetypes=[("Map Files", "*.map"), ("All Files", "*.*")],
             title="Save Map As..."
         )
         if not filepath:

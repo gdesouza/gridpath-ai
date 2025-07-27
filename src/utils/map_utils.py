@@ -31,18 +31,20 @@ def generate_random_map(M: int, N: int, wall_density=0.35):
     path_cells = set(guaranteed_path)
     for r, c in guaranteed_path:
         game_map.set_cell(r, c, '.')
+    
+    # Ensure 'P' and 'E' are explicitly set on the map
+    game_map.set_cell(start_pos[0], start_pos[1], 'P')
+    game_map.set_cell(exit_pos[0], exit_pos[1], 'E')
+    print(f"DEBUG: Placed P at {start_pos} and E at {exit_pos}")
 
     # 4. Randomly add open spaces (remove walls), avoiding the main path
     for r in range(M):
         for c in range(N):
-            if (r, c) in path_cells:
-                continue # Don't touch the guaranteed path
+            # Don't touch the guaranteed path, or 'P' and 'E'
+            if (r, c) in path_cells or (r, c) == start_pos or (r, c) == exit_pos:
+                continue 
             if random.random() > wall_density:
                 game_map.set_cell(r, c, '.')
-
-    # 5. Set the player and exit points for the reachability test
-    game_map.set_cell(start_pos[0], start_pos[1], 'P')
-    game_map.set_cell(exit_pos[0], exit_pos[1], 'E')
 
     # 6. Flood fill to find all reachable cells from 'P'
     reachable_cells = set()

@@ -82,7 +82,9 @@ class Game:
         for r in range(self.area.rows):
             for c in range(self.area.cols):
                 if self.area.get_cell(r, c) == char:
+                    print(f"DEBUG: Found '{char}' at ({r}, {c})")
                     return (r, c)
+        print(f"DEBUG: '{char}' not found in map.")
         return None
 
     def on_key_press(self, event):
