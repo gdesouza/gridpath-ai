@@ -132,4 +132,7 @@ class Game:
         self.area.set_cell(self.player_pos[0], self.player_pos[1], 'V') # Mark old position as visited
         self.area.set_cell(new_pos[0], new_pos[1], 'P')
         self.player_pos = new_pos
+        # Add to visited cells for exploration AIs
+        if hasattr(self, 'visited_cells'): # Only add if visited_cells attribute exists
+            self.visited_cells.add(new_pos)
         self.update_display()

@@ -54,7 +54,6 @@ class FrontierAgent:
                     (n_r, n_c) not in self.game.visited_cells and
                     self.game.area.get_cell(n_r, n_c) not in self.game.non_walkable):
                     frontier.add((n_r, n_c))
-                    break
         return frontier
 
     def _heuristic_distance(self, pos1: tuple, pos2: tuple) -> int:

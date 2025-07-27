@@ -18,6 +18,7 @@ def main():
         'E': '#2ecc71', 'X': '#34495e'
     }
     non_walkable_tiles = {'X'}
+    active_map = generate_random_map(15, 25) # Initialize with a random map
     
     while True:
         print("\n" + "+"+"-"*43+"+")
@@ -50,20 +51,39 @@ def main():
             continue
 
         if choice == 'l':
-            filepath = input("Enter the path to the map file: ")
-            loaded_map = load_map_from_file(filepath)
-            if loaded_map:
-                active_map = loaded_map
+            import tkinter as tk
+            from tkinter import filedialog
+            import os
+
+            root = tk.Tk()
+            root.withdraw() # Hide the main window
+
+            # Set initial directory to the 'maps' folder
+            initial_dir = os.path.join(os.getcwd(), 'maps')
+            if not os.path.exists(initial_dir):
+                os.makedirs(initial_dir) # Create if it doesn't exist
+
+            filepath = filedialog.askopenfilename(
+                initialdir=initial_dir,
+                title="Select a map file",
+                filetypes=[("Text Files", "*.txt"), ("All Files", "*.* ")]
+            )
+            
+            if filepath:
+                loaded_map = load_map_from_file(filepath)
+                if loaded_map:
+                    active_map = loaded_map
+                else:
+                    print("Returning to menu.")
             else:
-                print("Returning to menu.")
+                print("Map loading cancelled.")
             continue
 
         if choice not in ['1', '2', '3', '4', '5', '6', '7']:
             print("Invalid choice, please try again.")
             continue
 
-        # Generate a new map for each simulation to ensure a clean state
-        active_map = generate_random_map(15, 25) # You can adjust map size here
+        # Use the currently active_map for the game instance
         game = Game(active_map, color_map, non_walkable_tiles)
 
         if choice == '1':
