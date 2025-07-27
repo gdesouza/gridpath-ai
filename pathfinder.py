@@ -1,19 +1,12 @@
 import sys
-import matplotlib
-matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import matplotlib.colors
 import numpy as np
 
 class Area:
     """
-    Represents an M x N area using a list of lists. (Unchanged from before)
-
-    Attributes:
-        rows (int): The number of rows (M) in the area.
-        cols (int): The number of columns (N) in the area.
+    Represents an M x N area using a list of lists. (Unchanged)
     """
-
     def __init__(self, M: int, N: int, default_value: any = 0):
         if not (isinstance(M, int) and M > 0 and isinstance(N, int) and N > 0):
             raise ValueError("Area dimensions M and N must be positive integers.")
@@ -42,78 +35,139 @@ class Area:
     def __str__(self) -> str:
         return "\n".join(" ".join(map(str, row)) for row in self._grid)
 
-# --- NEW: Function to display the area graphically ---
-def display_graphically(area: Area, color_mapping: dict, title="Area Representation"):
+# --- NEW: Game class to manage state and interactivity ---
+class Game:
     """
-    Displays the Area object as a colored grid using matplotlib.
-
-    Args:
-        area (Area): The Area object to display.
-        color_mapping (dict): A dictionary mapping cell values to color names.
-                              e.g., {'.': 'white', 'X': 'red'}
-        title (str): The title for the plot window.
+    Manages the game state, rendering, and player controls.
     """
-    # 1. Create a mapping from your symbolic values ('.', 'P', etc.) to integers
-    # This is necessary because imshow works with numerical data.
-    unique_values = sorted(list(color_mapping.keys()))
-    value_to_int = {val: i for i, val in enumerate(unique_values)}
+    def __init__(self, area: Area, color_map: dict, non_walkable_tiles: set):
+        self.area = area
+        self.color_map = color_map
+        self.non_walkable = non_walkable_tiles
+        
+        # Find the player's starting position
+        self.player_pos = self._find_player()
+        if self.player_pos is None:
+            raise ValueError("Player 'P' not found in the area.")
 
-    # 2. Create a numerical grid based on the mapping
-    numeric_grid = np.zeros((area.rows, area.cols), dtype=int)
-    for r in range(area.rows):
-        for c in range(area.cols):
-            value = area.get_cell(r, c)
-            # Use .get() to avoid errors if a value in the grid isn't in the color map
-            numeric_grid[r, c] = value_to_int.get(value)
+        # --- Matplotlib Setup ---
+        # Create a mapping from values like 'P' to integers for plotting
+        self.unique_values = sorted(list(self.color_map.keys()))
+        self.value_to_int = {val: i for i, val in enumerate(self.unique_values)}
+        
+        # Create the custom colormap
+        cmap_colors = [self.color_map[val] for val in self.unique_values]
+        cmap = matplotlib.colors.ListedColormap(cmap_colors)
 
-    # 3. Create a custom colormap from your color mapping
-    cmap_colors = [color_mapping[val] for val in unique_values]
-    cmap = matplotlib.colors.ListedColormap(cmap_colors)
+        # Create the plot figure and axis
+        self.fig, self.ax = plt.subplots(figsize=(self.area.cols / 2.5, self.area.rows / 2.5))
+        numeric_grid = self._create_numeric_grid()
+        self.im = self.ax.imshow(numeric_grid, cmap=cmap, interpolation='nearest')
+        
+        self._format_plot()
+        
+        # Connect the key press event to our handler function
+        self.fig.canvas.mpl_connect('key_press_event', self.on_key_press)
+        print("Controls enabled. Use arrow keys to move the player. Close the window to exit.")
 
-    # 4. Plot the data
-    fig, ax = plt.subplots(figsize=(area.cols / 2, area.rows / 2))
-    ax.imshow(numeric_grid, cmap=cmap, interpolation='nearest')
+    def _find_player(self) -> tuple[int, int] | None:
+        """Finds the coordinates of the player 'P'."""
+        for r in range(self.area.rows):
+            for c in range(self.area.cols):
+                if self.area.get_cell(r, c) == 'P':
+                    return (r, c)
+        return None
 
-    # 5. Format the plot for a clean grid look
-    ax.set_xticks(np.arange(-.5, area.cols, 1), minor=True)
-    ax.set_yticks(np.arange(-.5, area.rows, 1), minor=True)
-    ax.grid(which="minor", color="black", linestyle='-', linewidth=1.5)
-    ax.tick_params(which="major", bottom=False, left=False, labelbottom=False, labelleft=False)
-    ax.set_title(title, fontsize=16)
-    
-    plt.show()
+    def _create_numeric_grid(self) -> np.ndarray:
+        """Converts the Area object's grid into a NumPy array of integers for plotting."""
+        numeric_grid = np.zeros((self.area.rows, self.area.cols), dtype=int)
+        for r in range(self.area.rows):
+            for c in range(self.area.cols):
+                value = self.area.get_cell(r, c)
+                numeric_grid[r, c] = self.value_to_int.get(value)
+        return numeric_grid
 
-# --- Main execution block to demonstrate usage ---
+    def _format_plot(self):
+        """Applies formatting to the plot for a clean grid appearance."""
+        self.ax.set_xticks(np.arange(-.5, self.area.cols, 1), minor=True)
+        self.ax.set_yticks(np.arange(-.5, self.area.rows, 1), minor=True)
+        self.ax.grid(which="minor", color="black", linestyle='-', linewidth=1.5)
+        self.ax.tick_params(which="major", bottom=False, left=False, labelbottom=False, labelleft=False)
+        self.ax.set_title("Interactive Player", fontsize=16)
+
+    def on_key_press(self, event):
+        """Handles key press events to move the player."""
+        old_r, old_c = self.player_pos
+        new_r, new_c = old_r, old_c
+
+        # Determine new position based on key pressed
+        if event.key == 'up':
+            new_r -= 1
+        elif event.key == 'down':
+            new_r += 1
+        elif event.key == 'left':
+            new_c -= 1
+        elif event.key == 'right':
+            new_c += 1
+        else:
+            return # Ignore other keys
+
+        # --- Collision Detection ---
+        # 1. Check if the move is within the grid boundaries
+        if not (0 <= new_r < self.area.rows and 0 <= new_c < self.area.cols):
+            return # Move is out of bounds
+            
+        # 2. Check if the destination tile is walkable
+        destination_tile = self.area.get_cell(new_r, new_c)
+        if destination_tile in self.non_walkable:
+            return # Cannot walk into this tile
+
+        # If move is valid, update the area
+        self.area.set_cell(old_r, old_c, '.')   # Clear the old position
+        self.area.set_cell(new_r, new_c, 'P')   # Set the new position
+        self.player_pos = (new_r, new_c)        # Update player's tracked position
+
+        # Redraw the display
+        self.update_display()
+
+    def update_display(self):
+        """Updates the image data and redraws the canvas."""
+        new_numeric_grid = self._create_numeric_grid()
+        self.im.set_data(new_numeric_grid)
+        self.fig.canvas.draw_idle()
+
+    def run(self):
+        """Starts the game by showing the plot."""
+        plt.show()
+
+# --- Main execution block ---
 if __name__ == "__main__":
     try:
         # Create a 10x15 area
         game_map = Area(M=10, N=15, default_value='.')
 
-        # Modify the area by placing objects
-        game_map.set_cell(row=2, col=2, value='P') # Player
-        game_map.set_cell(row=8, col=12, value='E') # Exit
+        # Place objects: Player 'P', Exit 'E', Wall 'X', Water 'W'
+        game_map.set_cell(row=2, col=2, value='P') 
+        game_map.set_cell(row=8, col=12, value='E') 
         for i in range(5):
-            game_map.set_cell(row=i, col=7, value='X') # Wall
-            game_map.set_cell(row=5, col=i + 4, value='W') # Water
+            game_map.set_cell(row=i, col=7, value='X')
+            game_map.set_cell(row=5, col=i + 4, value='W')
         
-        # Print the text representation to the console
-        print("## Text Representation ##")
-        print(game_map)
-
         # 🎨 Define the mapping from cell content to colors
         color_map = {
-            '.': 'lightgray',
-            'P': '#3498db',  # Blue
-            'E': '#2ecc71',  # Green
-            'X': '#34495e',  # Dark Gray
-            'W': '#5dade2'   # Light Blue
+            '.': '#d3d3d3',  # Light Gray (Floor)
+            'P': '#3498db',  # Blue (Player)
+            'E': '#2ecc71',  # Green (Exit)
+            'X': '#34495e',  # Dark Gray (Wall)
+            'W': '#5dade2'   # Light Blue (Water)
         }
+        
+        # Define which tiles the player cannot move into
+        non_walkable_tiles = {'X', 'W'}
 
-        # Display the graphical representation in a new window
-        print("\nDisplaying graphical representation...")
-        display_graphically(game_map, color_map, title="My Game Map")
+        # Create and run the game
+        game = Game(game_map, color_map, non_walkable_tiles)
+        game.run()
 
-    except (ValueError, IndexError, ImportError) as e:
+    except Exception as e:
         print(f"\nAn error occurred: {e}", file=sys.stderr)
-        if isinstance(e, ImportError):
-            print("Please ensure 'matplotlib' and 'numpy' are installed (`pip install matplotlib numpy`)", file=sys.stderr)
